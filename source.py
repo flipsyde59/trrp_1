@@ -1,49 +1,16 @@
-import httplib2
-import apiclient
-from oauth2client.service_account import ServiceAccountCredentials
-
-
-def key_read():
-    # Читаем ключи из файла
-    from cryptography.fernet import Fernet
-    f = open('key.bin', 'rb')
-    cipher_key = f.read()
-    f.close()
-    fo = open('oauth.ini', 'rb')
-    encrypted_text = fo.read()
-    fo.close()
-    cipher = Fernet(cipher_key)
-    dec_text = cipher.decrypt(encrypted_text).decode("utf-8")
-    name_temp_file = '1.json'
-    fo = open(name_temp_file, 'w')
-    fo.write(dec_text)
-    fo.close()
-    sac = ServiceAccountCredentials.from_json_keyfile_name(name_temp_file,
-                                                           ['https://www.googleapis.com/auth/spreadsheets',
-                                                            'https://www.googleapis.com/auth/drive'])
-    import os
-    os.remove(name_temp_file)
-    return sac
-
 
 def auth():
+    # Так как модули используются только в этой функции, что б память не засорять импорт здесь
     import pickle
     import os.path
     from googleapiclient.discovery import build
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
-
-    # If modifying these scopes, delete the file token.pickle.
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-
     creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
     if os.path.exists('token.pickle'):
         with open('token.pickle', 'rb') as token:
             creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -52,12 +19,12 @@ def auth():
                 'D:\\temp\\client_secret_892012293427-lqvv0dlp1n4s2buuqjlpgh55aeeao99n.apps.googleusercontent.com.json',
                 SCOPES)
             creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
+
         with open('token.pickle', 'wb') as token:
             pickle.dump(creds, token)
-
     service = build('sheets', 'v4', credentials=creds)
     return service
+
 #region Работа с книгой
 def create_gs(name, service):
     spreadsheet = service.spreadsheets().create(body={
@@ -68,18 +35,6 @@ def create_gs(name, service):
                                    'gridProperties': {'rowCount': 100, 'columnCount': 15}}}]
     }).execute()
     return spreadsheet['spreadsheetId']
-
-
-def open_access(spreadsheetId, httpAuth, mail='flipsyde59@mail.ru'):
-    driveService = apiclient.discovery.build('drive', 'v3',
-                                             http=httpAuth)  # Выбираем работу с Google Drive и 3 версию API
-    access = driveService.permissions().create(
-        fileId=spreadsheetId,
-        body={'type': 'user', 'role': 'reader', 'emailAddress': mail},  # Открываем доступ на чтение
-        fields='id'
-    ).execute()
-
-
 # Добавление листа
 def add_sheet(service, spreadsheetId, title='Еще один лист'):
     results = service.spreadsheets().batchUpdate(
@@ -100,8 +55,7 @@ def add_sheet(service, spreadsheetId, title='Еще один лист'):
                 }
             ]
         }).execute()
-
-
+# Удаление листа
 def del_sheet(service, spreadsheetId, sheet):
     results = service.spreadsheets().batchUpdate(
         spreadsheetId=spreadsheetId,
@@ -115,7 +69,6 @@ def del_sheet(service, spreadsheetId, sheet):
                 }
             ]
         }).execute()
-
 # Получаем список листов, их ID и название
 def get_lists(service, spreadsheetId, show=True):
     spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheetId).execute()
@@ -124,8 +77,7 @@ def get_lists(service, spreadsheetId, show=True):
         for sheet in sheetList:
             print(sheetList.index(sheet) + 1, sheet['properties']['sheetId'], sheet['properties']['title'])
     return sheetList
-
-
+# Измененние ячеек
 def cell_dev(service, spreadsheetId, sheet, cell, data):
     results = service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheetId, body={
         "valueInputOption": "USER_ENTERED",
@@ -136,7 +88,6 @@ def cell_dev(service, spreadsheetId, sheet, cell, data):
              "values": [f'{data}']}
         ]
     }).execute()
-
 #endregion
 # region Работа с форматом
 # Зададим ширину колонок. Функция batchUpdate может принимать несколько команд сразу, так что мы одним запросом
@@ -194,8 +145,6 @@ def col_width(service, spreadsheetId, sheetId=0):
             }
         ]
     }).execute()
-
-
 # Рисуем рамку
 def border(service, spreadsheetId, sheetId=0):
     results = service.spreadsheets().batchUpdate(
@@ -235,8 +184,6 @@ def border(service, spreadsheetId, sheetId=0):
                                    }}
             ]
         }).execute()
-
-
 # Объединяем ячейки B1:D1
 def unite_cells(service, spreadsheetId, sheetId=0):
     results = service.spreadsheets().batchUpdate(
@@ -251,8 +198,6 @@ def unite_cells(service, spreadsheetId, sheetId=0):
                                 'mergeType': 'MERGE_ALL'}}
             ]
         }).execute()
-
-
 # Добавляем заголовок таблицы
 def header(service, spreadsheetId, sheetId=0):
     results = service.spreadsheets().values().batchUpdate(spreadsheetId=spreadsheetId, body={
@@ -265,8 +210,7 @@ def header(service, spreadsheetId, sheetId=0):
                         ]}
         ]
     }).execute()
-
-
+# Инфо о ячейках
 def data_about_cells(service, spreadsheetId, range):
     ranges = ["Лист номер один!C2:C2"]  #
 
@@ -280,8 +224,6 @@ def data_about_cells(service, spreadsheetId, range):
     print(results['sheets'][0]['data'][0]['rowMetadata'])
     print('\nШирина ячейки')
     print(results['sheets'][0]['data'][0]['columnMetadata'])
-
-
 # endregion
 
 # чтение
@@ -305,7 +247,7 @@ flag = True
 
 
 while flag:
-    service = auth()
+    service = auth()  # Авторизация
     create = input('Создать новую таблицу? да/нет: ')
     spreadsheetId=''
     if 'Д' in create.upper():
@@ -325,10 +267,6 @@ while flag:
     else:
         print('Вы ввели что-то не то. Попробуйте ещё раз')
         continue
-    access = input('Предоставить доступ к этой таблице? да/нет: ')
-    if 'Д' in access.upper():
-        email_acc = input('Введите gmail: ')
-        open_access(spreadsheetId, httpAuth, email_acc)
     print('список листов таблицы:\n№   id         title')
     sh_l = get_lists(service, spreadsheetId)
     num_l = int(input('Введите порядковый номер интересующего листа (0 - создать новый лист): '))
