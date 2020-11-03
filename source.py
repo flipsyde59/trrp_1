@@ -300,13 +300,12 @@ def read(service, spreadsheetId, sheet):
         print('Лист пуст')
 
 
-serv = auth()
+
 flag = True
-credentials = key_read()  # Чтение зашифрованного файла
-httpAuth = credentials.authorize(httplib2.Http())  # Авторизуемся в системе
+
 
 while flag:
-    service = serv # apiclient.discovery.build('sheets', 'v4', http=httpAuth)  # Выбираем работу с таблицами и 4 версию API
+    service = auth()
     create = input('Создать новую таблицу? да/нет: ')
     spreadsheetId=''
     if 'Д' in create.upper():
