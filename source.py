@@ -6,7 +6,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 def key_read():
     # Читаем ключи из файла
     from cryptography.fernet import Fernet
-    import json
     f = open('key.bin', 'rb')
     cipher_key = f.read()
     f.close()
@@ -27,6 +26,39 @@ def key_read():
     return sac
 
 
+def auth():
+    import pickle
+    import os.path
+    from googleapiclient.discovery import build
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+
+    # If modifying these scopes, delete the file token.pickle.
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+
+    creds = None
+    # The file token.pickle stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'D:\\temp\\client_secret_892012293427-lqvv0dlp1n4s2buuqjlpgh55aeeao99n.apps.googleusercontent.com.json',
+                SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+
+    service = build('sheets', 'v4', credentials=creds)
+    return service
+#region Работа с книгой
 def create_gs(name, service):
     spreadsheet = service.spreadsheets().create(body={
         'properties': {'title': name, 'locale': 'ru_RU'},
@@ -105,7 +137,7 @@ def cell_dev(service, spreadsheetId, sheet, cell, data):
         ]
     }).execute()
 
-
+#endregion
 # region Работа с форматом
 # Зададим ширину колонок. Функция batchUpdate может принимать несколько команд сразу, так что мы одним запросом
 # установим ширину трех групп колонок. В первой и третьей группе одна колонка, а во второй - две.
@@ -260,17 +292,21 @@ def read(service, spreadsheetId, sheet):
                                                        ranges=ranges,
                                                        valueRenderOption='FORMATTED_VALUE',
                                                        dateTimeRenderOption='FORMATTED_STRING').execute()
-    sheet_values = results['valueRanges'][0]['values']
-    for row in sheet_values:
-        print('|'.join(row))
+    try:
+        sheet_values = results['valueRanges'][0]['values']
+        for row in sheet_values:
+            print('|'.join(row))
+    except KeyError:
+        print('Лист пуст')
 
 
+serv = auth()
 flag = True
 credentials = key_read()  # Чтение зашифрованного файла
 httpAuth = credentials.authorize(httplib2.Http())  # Авторизуемся в системе
 
 while flag:
-    service = apiclient.discovery.build('sheets', 'v4', http=httpAuth)  # Выбираем работу с таблицами и 4 версию API
+    service = serv # apiclient.discovery.build('sheets', 'v4', http=httpAuth)  # Выбираем работу с таблицами и 4 версию API
     create = input('Создать новую таблицу? да/нет: ')
     spreadsheetId=''
     if 'Д' in create.upper():
@@ -282,6 +318,11 @@ while flag:
         spreadsheetId = input('Вставьте id существующей таблицы: ')
         if spreadsheetId == '0':
             spreadsheetId = exist
+        else:
+            import requests
+            if requests.head('https://docs.google.com/spreadsheets/d/' + spreadsheetId, allow_redirects=True).status_code != 200:
+                print('Такого файла не существует, начнем сначала.')
+                continue
     else:
         print('Вы ввели что-то не то. Попробуйте ещё раз')
         continue
