@@ -16,7 +16,7 @@ def auth():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'D:\\temp\\client_secret_892012293427-lqvv0dlp1n4s2buuqjlpgh55aeeao99n.apps.googleusercontent.com.json',
+                'client_secret_892012293427-lqvv0dlp1n4s2buuqjlpgh55aeeao99n.apps.googleusercontent.com.json',
                 SCOPES)
             creds = flow.run_local_server(port=0)
 
