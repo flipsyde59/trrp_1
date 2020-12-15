@@ -315,7 +315,7 @@ while flag:
         num_l = check_inp('Введите порядковый номер листа который нужно удалить (0 - не удалять лист): ', len(sh_l))
         if num_l!=0:
             del_sheet(service, spreadsheetId, sh_l[num_l-1])
-        print('Лист удалён')
+            print('Лист удалён')
     cont = input("Начать сначала? да/нет: ")
     if 'Н' in cont.upper():
         flag = False
