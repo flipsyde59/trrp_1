@@ -23,7 +23,8 @@ def auth():
         with open('token.pickle', 'wb') as token:
             pickle.dump(creds, token)
     service = build('sheets', 'v4', credentials=creds)
-    return service
+    service_files = build('drive', 'v3', credentials=creds)
+    return service, service_files
 
 #region Работа с книгой
 def create_gs(name, service):
@@ -85,9 +86,12 @@ def cell_dev(service, spreadsheetId, sheet, cell, data):
         "data": [
             {"range": f"{sheet['properties']['title']}!{cell}",
              "majorDimension": "ROWS",  # Сначала заполнять строки, затем столбцы
-             "values": [f'{data}']}
+             "values": [[f'{data}']]}
         ]
     }).execute()
+
+
+
 #endregion
 # region Работа с форматом
 # Зададим ширину колонок. Функция batchUpdate может принимать несколько команд сразу, так что мы одним запросом
@@ -243,11 +247,21 @@ def read(service, spreadsheetId, sheet):
 
 
 
+def check_inp(text, count_l):
+    while True:
+        k=int(input(text))
+        if k < 0 or k>count_l+1:
+            print('Вы ввели что-то не то, попробуйте ещё раз.')
+        else:
+            return k
+
+
+
 flag = True
 
 
 while flag:
-    service = auth()  # Авторизация
+    service, service_files = auth()  # Авторизация
     create = input('Создать новую таблицу? да/нет: ')
     spreadsheetId=''
     if 'Д' in create.upper():
@@ -269,7 +283,7 @@ while flag:
         continue
     print('список листов таблицы:\n№   id         title')
     sh_l = get_lists(service, spreadsheetId)
-    num_l = int(input('Введите порядковый номер интересующего листа (0 - создать новый лист): '))
+    num_l = check_inp('Введите порядковый номер интересующего листа (0 - создать новый лист): ', len(sh_l))
     if num_l == 0:
         name_sheet = input('Введите имя нового листа: ')
         add_sheet(service, spreadsheetId, name_sheet)
@@ -280,23 +294,32 @@ while flag:
     read(service, spreadsheetId, sheet)
     in_up = input('Внести/изменить данные? да/нет: ')
     if 'Д' in in_up.upper():
-        cell = input('Введите индекс ячейки, в которой хотите внести изменения: ')
-        data = input('Ведите данные: ')
-        cell_dev(service, spreadsheetId, sheet, cell, data)
-        print('Данные внесены')
+        flag2=True
+        while flag2:
+            cell = input('Введите индекс ячейки, в которой хотите внести изменения: ')
+            data = input('Ведите данные: ')
+            try:
+                cell_dev(service, spreadsheetId, sheet, cell, data)
+                print('Данные внесены')
+                flag2=False
+            except Exception:
+                ind_s = input('Индекс ячейки не валиден. Данные не внесены. Повторить ввод индекса? да/нет')
+                if 'Н' in ind_s.upper():
+                    flag2=False
         print('Данные на листе:')
         read(service, spreadsheetId, sheet)
     del_l = input('Вы хотите удалить какой-либо лист? да/нет: ')
     if 'Д' in del_l.upper():
         print('список листов таблицы:\n№   id         title')
         sh_l = get_lists(service, spreadsheetId)
-        num_l = int(input('Введите порядковый номер листа который нужно удалить (0 - не удалять лист): '))
+        num_l = check_inp('Введите порядковый номер листа который нужно удалить (0 - не удалять лист): ', len(sh_l))
         if num_l!=0:
             del_sheet(service, spreadsheetId, sh_l[num_l-1])
-    cont = input("продолжить? да/нет: ")
+        print('Лист удалён')
+    cont = input("Начать сначала? да/нет: ")
     if 'Н' in cont.upper():
         flag = False
         delete_f = input('Удалить файл? да/нет: ')
         if 'Д' in delete_f.upper():
-            service.files().delete(fileId=spreadsheetId).execute()
+            service_files.files().delete(fileId=spreadsheetId).execute()
             print('Файл удалён')
